@@ -40,46 +40,73 @@ COMP_TYPES = [
     "Transformer", "Other",
 ]
 
+# ── Session State ────────────────────────────────────────────────────────────
 if "parts" not in st.session_state:
     st.session_state.parts = []
 
-# ── Header ────────────────────────────────────────────────────────────────────
+if "current_machine" not in st.session_state:
+    st.session_state.current_machine = None
+
+# ── Header ───────────────────────────────────────────────────────────────────
 st.markdown("## ⚡ Critical Parts Logger")
 st.markdown("<div style='color:#8fa5bc;font-size:0.85rem;margin-top:-0.5rem;margin-bottom:1.5rem;'>Sapphire Fibres Limited</div>", unsafe_allow_html=True)
 
-# ── Form ──────────────────────────────────────────────────────────────────────
-with st.form("add_part", clear_on_submit=True):
+# ── Machine Setup ────────────────────────────────────────────────────────────
+if st.session_state.current_machine is None:
+    st.markdown("### ➕ Start New Machine")
+
     c1, c2 = st.columns(2)
-    department = c1.text_input("Department *", placeholder="e.g. Weaving")
-    machine    = c2.text_input("Machine *",    placeholder="e.g. Loom-12")
+    dept_input = c1.text_input("Department *", placeholder="e.g. Weaving")
+    mach_input = c2.text_input("Machine *", placeholder="e.g. Loom-12")
 
-    c3, c4 = st.columns(2)
-    comp_type = c3.selectbox("Component Type *", COMP_TYPES)
-    name      = c4.text_input("Name / Brand",    placeholder="e.g. Siemens")
+    if st.button("Start Machine", use_container_width=True, type="primary"):
+        if not dept_input.strip() or not mach_input.strip():
+            st.error("Department and Machine are required.")
+        else:
+            st.session_state.current_machine = {
+                "department": dept_input.strip(),
+                "machine": mach_input.strip()
+            }
+            st.success(f"Started {mach_input.strip()}")
 
-    c5, c6, c7 = st.columns(3)
-    model = c5.text_input("Model No.",  placeholder="e.g. G120")
-    specs = c6.text_input("Specs",      placeholder="e.g. 7.5 kW, 400 V")
-    tag   = c7.text_input("Tag",        placeholder="e.g. VFD-01")
+# ── Component Entry ──────────────────────────────────────────────────────────
+if st.session_state.current_machine is not None:
+    st.markdown(f"""
+    <div style='padding:10px;background:#f4f8ff;border-radius:8px;margin-bottom:10px;'>
+    <strong>Current:</strong> {st.session_state.current_machine['department']} → {st.session_state.current_machine['machine']}
+    </div>
+    """, unsafe_allow_html=True)
 
-    submitted = st.form_submit_button("+ Add Component", use_container_width=True, type="primary")
+    with st.form("add_component", clear_on_submit=True):
 
-if submitted:
-    if not department.strip() or not machine.strip():
-        st.error("Department and Machine are required.")
-    else:
+        c3, c4 = st.columns(2)
+        comp_type = c3.selectbox("Component Type *", COMP_TYPES)
+        name      = c4.text_input("Name / Brand", placeholder="e.g. Siemens")
+
+        c5, c6, c7 = st.columns(3)
+        model = c5.text_input("Model No.", placeholder="e.g. G120")
+        specs = c6.text_input("Specs", placeholder="e.g. 7.5 kW, 400 V")
+        tag   = c7.text_input("Tag", placeholder="e.g. VFD-01")
+
+        submitted = st.form_submit_button("+ Add Component", use_container_width=True)
+
+    if submitted:
         st.session_state.parts.append({
-            "department": department.strip(),
-            "machine":    machine.strip(),
+            "department": st.session_state.current_machine["department"],
+            "machine":    st.session_state.current_machine["machine"],
             "type":       comp_type,
             "name":       name.strip(),
             "model":      model.strip(),
             "specs":      specs.strip(),
             "tag":        tag.strip(),
         })
-        st.success(f"✓ {comp_type} added to {machine.strip()}")
+        st.success(f"✓ {comp_type} added")
 
-# ── Parts list ────────────────────────────────────────────────────────────────
+    if st.button("✅ Finish Machine", use_container_width=True):
+        st.session_state.current_machine = None
+        st.success("Machine saved. Start another.")
+
+# ── Parts List ───────────────────────────────────────────────────────────────
 parts = st.session_state.parts
 
 if parts:
@@ -110,11 +137,11 @@ if parts:
                         <div class="right">{tag_txt}</div>
                     </div>""", unsafe_allow_html=True)
                 with c_del:
-                    if st.button("✕", key=f"del_{dept}_{mach}_{i}", help="Remove"):
+                    if st.button("✕", key=f"del_{dept}_{mach}_{i}"):
                         st.session_state.parts.remove(p)
                         st.rerun()
 
-    # ── Export ────────────────────────────────────────────────────────────────
+    # ── Export ───────────────────────────────────────────────────────────────
     st.divider()
 
     def build_excel(data):
