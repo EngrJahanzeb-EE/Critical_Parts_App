@@ -40,18 +40,18 @@ COMP_TYPES = [
     "Transformer"
 ]
 
-# ── Session State ────────────────────────────────────────────────────────────
+# ── Session State ─────────────────────────────────────────────
 if "parts" not in st.session_state:
     st.session_state.parts = []
 
 if "current_machine" not in st.session_state:
     st.session_state.current_machine = None
 
-# ── Header ───────────────────────────────────────────────────────────────────
+# ── Header ───────────────────────────────────────────────────
 st.markdown("## ⚡ Critical Parts Logger")
 st.markdown("<div style='color:#8fa5bc;font-size:0.85rem;margin-top:-0.5rem;margin-bottom:1.5rem;'>Sapphire Fibres Limited</div>", unsafe_allow_html=True)
 
-# ── Machine Setup ────────────────────────────────────────────────────────────
+# ── Machine Setup ─────────────────────────────────────────────
 if st.session_state.current_machine is None:
     st.markdown("### ➕ Start New Machine")
 
@@ -69,7 +69,7 @@ if st.session_state.current_machine is None:
             }
             st.success(f"Started {mach_input.strip()}")
 
-# ── Component Entry ──────────────────────────────────────────────────────────
+# ── Component Entry ──────────────────────────────────────────
 if st.session_state.current_machine is not None:
     st.markdown(f"""
     <div style='padding:10px;background:#f4f8ff;border-radius:8px;margin-bottom:10px;'>
@@ -77,20 +77,27 @@ if st.session_state.current_machine is not None:
     </div>
     """, unsafe_allow_html=True)
 
-    with st.form("add_component", clear_on_submit=True):
+    # 👉 Component Type OUTSIDE form (FIXED)
+    c3, c4 = st.columns(2)
 
-        c3, c4 = st.columns(2)
+    comp_type = c3.selectbox(
+        "Component Type *",
+        COMP_TYPES + ["Other (Type Manually)"],
+        key="comp_type_select"
+    )
 
-        comp_type = c3.selectbox(
-            "Component Type *",
-            COMP_TYPES + ["Other (Type Manually)"]
+    custom_type = ""
+    if comp_type == "Other (Type Manually)":
+        custom_type = c3.text_input(
+            "Enter Component Type",
+            placeholder="e.g. Servo Drive",
+            key="custom_type_input"
         )
 
-        custom_type = ""
-        if comp_type == "Other (Type Manually)":
-            custom_type = c3.text_input("Enter Component Type", placeholder="e.g. Servo Drive")
+    final_type = custom_type.strip() if comp_type == "Other (Type Manually)" else comp_type
 
-        final_type = custom_type.strip() if comp_type == "Other (Type Manually)" else comp_type
+    # 👉 Form only for submission
+    with st.form("add_component", clear_on_submit=True):
 
         name = c4.text_input("Name / Brand", placeholder="e.g. Siemens")
 
@@ -120,7 +127,7 @@ if st.session_state.current_machine is not None:
         st.session_state.current_machine = None
         st.success("Machine saved. Start another.")
 
-# ── Parts List ───────────────────────────────────────────────────────────────
+# ── Parts List ───────────────────────────────────────────────
 parts = st.session_state.parts
 
 if parts:
@@ -155,7 +162,7 @@ if parts:
                         st.session_state.parts.remove(p)
                         st.rerun()
 
-    # ── Export ───────────────────────────────────────────────────────────────
+    # ── Excel Export ─────────────────────────────────────────
     st.divider()
 
     def build_excel(data):
@@ -176,28 +183,15 @@ if parts:
             c.fill      = PatternFill("solid", fgColor="185FA5")
             c.alignment = Alignment(horizontal="center", vertical="center")
             c.border    = border
-        ws.row_dimensions[1].height = 24
 
         sorted_data = sorted(data, key=lambda p: (p["department"], p["machine"], p["type"]))
-        fill_even = PatternFill("solid", fgColor="F4F8FF")
-        fill_odd  = PatternFill("solid", fgColor="FFFFFF")
 
-        for ri, p in enumerate(sorted_data, 2):
+        for p in sorted_data:
             ws.append([p["department"], p["machine"], p["type"],
                        p["name"], p["model"], p["specs"], p["tag"]])
-            fill = fill_even if ri % 2 == 0 else fill_odd
-            for ci in range(1, len(headers) + 1):
-                c = ws.cell(row=ri, column=ci)
-                c.font      = Font(name="Arial", size=10)
-                c.fill      = fill
-                c.alignment = Alignment(vertical="top", wrap_text=True)
-                c.border    = border
 
         for i, w in enumerate(col_widths, 1):
             ws.column_dimensions[get_column_letter(i)].width = w
-
-        ws.freeze_panes = "A2"
-        ws.auto_filter.ref = f"A1:{get_column_letter(len(headers))}1"
 
         buf = BytesIO()
         wb.save(buf)
@@ -206,7 +200,7 @@ if parts:
 
     fname = f"Critical_Parts_{datetime.now().strftime('%Y%m%d')}.xlsx"
     st.download_button(
-        label="⬇  Download Excel",
+        label="⬇ Download Excel",
         data=build_excel(parts),
         file_name=fname,
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
