@@ -37,7 +37,7 @@ COMP_TYPES = [
     "VFD / Drive", "Motor", "PLC", "HMI",
     "Encoder / Resolver", "Load Cell", "Sensor",
     "Circuit Breaker / MCCB", "Relay / Contactor",
-    "Transformer", "Other",
+    "Transformer"
 ]
 
 # ── Session State ────────────────────────────────────────────────────────────
@@ -80,8 +80,19 @@ if st.session_state.current_machine is not None:
     with st.form("add_component", clear_on_submit=True):
 
         c3, c4 = st.columns(2)
-        comp_type = c3.selectbox("Component Type *", COMP_TYPES)
-        name      = c4.text_input("Name / Brand", placeholder="e.g. Siemens")
+
+        comp_type = c3.selectbox(
+            "Component Type *",
+            COMP_TYPES + ["Other (Type Manually)"]
+        )
+
+        custom_type = ""
+        if comp_type == "Other (Type Manually)":
+            custom_type = c3.text_input("Enter Component Type", placeholder="e.g. Servo Drive")
+
+        final_type = custom_type.strip() if comp_type == "Other (Type Manually)" else comp_type
+
+        name = c4.text_input("Name / Brand", placeholder="e.g. Siemens")
 
         c5, c6, c7 = st.columns(3)
         model = c5.text_input("Model No.", placeholder="e.g. G120")
@@ -91,16 +102,19 @@ if st.session_state.current_machine is not None:
         submitted = st.form_submit_button("+ Add Component", use_container_width=True)
 
     if submitted:
-        st.session_state.parts.append({
-            "department": st.session_state.current_machine["department"],
-            "machine":    st.session_state.current_machine["machine"],
-            "type":       comp_type,
-            "name":       name.strip(),
-            "model":      model.strip(),
-            "specs":      specs.strip(),
-            "tag":        tag.strip(),
-        })
-        st.success(f"✓ {comp_type} added")
+        if comp_type == "Other (Type Manually)" and not final_type:
+            st.error("Please enter a custom component type.")
+        else:
+            st.session_state.parts.append({
+                "department": st.session_state.current_machine["department"],
+                "machine":    st.session_state.current_machine["machine"],
+                "type":       final_type,
+                "name":       name.strip(),
+                "model":      model.strip(),
+                "specs":      specs.strip(),
+                "tag":        tag.strip(),
+            })
+            st.success(f"✓ {final_type} added")
 
     if st.button("✅ Finish Machine", use_container_width=True):
         st.session_state.current_machine = None
