@@ -47,6 +47,9 @@ if "parts" not in st.session_state:
 if "current_machine" not in st.session_state:
     st.session_state.current_machine = None
 
+if "custom_type_input" not in st.session_state:
+    st.session_state.custom_type_input = ""
+
 # ── Header ───────────────────────────────────────────────────
 st.markdown("## ⚡ Critical Parts Logger")
 st.markdown("<div style='color:#8fa5bc;font-size:0.85rem;margin-top:-0.5rem;margin-bottom:1.5rem;'>Sapphire Fibres Limited</div>", unsafe_allow_html=True)
@@ -77,7 +80,6 @@ if st.session_state.current_machine is not None:
     </div>
     """, unsafe_allow_html=True)
 
-    # 👉 Component Type OUTSIDE form (FIXED)
     c3, c4 = st.columns(2)
 
     comp_type = c3.selectbox(
@@ -96,15 +98,15 @@ if st.session_state.current_machine is not None:
 
     final_type = custom_type.strip() if comp_type == "Other (Type Manually)" else comp_type
 
-    # 👉 Form only for submission
     with st.form("add_component", clear_on_submit=True):
 
         name = c4.text_input("Name / Brand", placeholder="e.g. Siemens")
 
-        c5, c6, c7 = st.columns(3)
+        c5, c6, c7, c8 = st.columns(4)
         model = c5.text_input("Model No.", placeholder="e.g. G120")
         specs = c6.text_input("Specs", placeholder="e.g. 7.5 kW, 400 V")
         tag   = c7.text_input("Tag", placeholder="e.g. VFD-01")
+        location = c8.text_input("Location", placeholder="e.g. Panel A - Left")
 
         submitted = st.form_submit_button("+ Add Component", use_container_width=True)
 
@@ -120,6 +122,7 @@ if st.session_state.current_machine is not None:
                 "model":      model.strip(),
                 "specs":      specs.strip(),
                 "tag":        tag.strip(),
+                "location":   location.strip(),
             })
             st.success(f"✓ {final_type} added")
 
@@ -148,7 +151,12 @@ if parts:
         for mach, comps in sorted(machines.items()):
             st.markdown(f"<div style='font-size:0.82rem;font-weight:600;color:#2a4a68;margin-bottom:0.4rem;'>🔧 {mach}</div>", unsafe_allow_html=True)
             for i, p in enumerate(comps):
-                detail = " · ".join(filter(None, [p["name"], p["model"], p["specs"]]))
+                detail = " · ".join(filter(None, [
+                    p["name"],
+                    p["model"],
+                    p["specs"],
+                    f"Loc: {p.get('location','')}" if p.get("location") else ""
+                ]))
                 tag_txt = f"Tag: {p['tag']}" if p["tag"] else ""
                 c_card, c_del = st.columns([12, 1])
                 with c_card:
@@ -173,8 +181,8 @@ if parts:
         thin   = Side(style="thin", color="D0DCEA")
         border = Border(left=thin, right=thin, top=thin, bottom=thin)
 
-        headers    = ["Department", "Machine", "Component Type", "Name / Brand", "Model No.", "Specs", "Tag"]
-        col_widths = [20, 22, 24, 20, 20, 36, 14]
+        headers = ["Department", "Machine", "Component Type", "Name / Brand", "Model No.", "Specs", "Location", "Tag"]
+        col_widths = [20, 22, 24, 20, 20, 30, 26, 14]
 
         ws.append(headers)
         for ci in range(1, len(headers) + 1):
@@ -187,11 +195,17 @@ if parts:
         sorted_data = sorted(data, key=lambda p: (p["department"], p["machine"], p["type"]))
 
         for p in sorted_data:
-            ws.append([p["department"], p["machine"], p["type"],
-                       p["name"], p["model"], p["specs"], p["tag"]])
+            ws.append([
+                p["department"], p["machine"], p["type"],
+                p["name"], p["model"], p["specs"],
+                p.get("location",""), p["tag"]
+            ])
 
         for i, w in enumerate(col_widths, 1):
             ws.column_dimensions[get_column_letter(i)].width = w
+
+        ws.auto_filter.ref = ws.dimensions
+        ws.freeze_panes = "A2"
 
         buf = BytesIO()
         wb.save(buf)
